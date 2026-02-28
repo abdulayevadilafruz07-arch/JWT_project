@@ -1,6 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser
-
+from django.core.validators import FileExtensionValidator
 
 ORDINARY_USER, ADMIN, MANAGER = ('ordinary_user', 'admin', 'manager')
 NEW, CODE_VERIFY, DONE, PHOTO_DONE = ('new', 'code_verify', 'done', 'photo_done')
@@ -45,4 +45,5 @@ class CustomUser(AbstractUser):
     )
     email = models.EmailField(max_length=50, unique=True, blank=True, null=True)
     phone_number = models.CharField(max_length=13,unique=True, blank=True, null=True)
-    photo = models.ImageField(upload_to='/user_photos/',)
+    photo = models.ImageField(upload_to='/user_photos/',  \
+            validators=[FileExtensionValidator(allowed_extensions=['jpg', 'png','heic'])])
