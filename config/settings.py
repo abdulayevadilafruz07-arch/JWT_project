@@ -147,3 +147,16 @@ MEDIA_ROOT='media'
 
 EMAIL_EXPIRATION_TIME=3
 PHONE_EXPIRATION_TIME=2
+
+
+
+REST_FRAMEWORK = {'DEFAULT_AUTHENTICATION_CLASSES':[
+        'rest_framework_simplejwt.authentication.JWTAuthentication'
+    ],
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.IsAuthenticated',
+    ]
+}
+
+AUTH_USER_MODEL = 'users.CustomUser'
+

@@ -11,7 +11,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 
 ORDINARY_USER, ADMIN, MANAGER = ('ordinary_user', 'admin', 'manager')
 NEW, CODE_VERIFY, DONE, PHOTO_DONE = ('new', 'code_verify', 'done', 'photo_done')
-VIA_EMAIL, VIA_PHOTO = ('via_email', 'via_photo')
+VIA_EMAIL, VIA_PHONE = ('via_email', 'via_phone')
 
 class CustomUser(AbstractUser,BaseModel):
 
@@ -30,7 +30,7 @@ class CustomUser(AbstractUser,BaseModel):
 
     USER_AUTH_TYPE = (
         (VIA_EMAIL, VIA_EMAIL),
-        (VIA_PHOTO, VIA_PHOTO)
+        (VIA_PHONE, VIA_PHONE)
     )
 
     user_role = models.CharField(
@@ -49,10 +49,13 @@ class CustomUser(AbstractUser,BaseModel):
         max_length=20,
         choices=USER_AUTH_TYPE
     )
+
     email = models.EmailField(max_length=50, unique=True, blank=True, null=True)
     phone_number = models.CharField(max_length=13,unique=True, blank=True, null=True)
-    photo = models.ImageField(upload_to='/user_photos/',  \
-            validators=[FileExtensionValidator(allowed_extensions=['jpg', 'png','heic'])])
+    photo = models.ImageField(upload_to='user_photos/', validators=[FileExtensionValidator(allowed_extensions=['jpg', 'png','heic'])])
+    is_active = models.BooleanField(default=False)
+
+
 
     def __str__(self):
         return self.username
@@ -61,19 +64,25 @@ class CustomUser(AbstractUser,BaseModel):
     def check_username(self):
         if not self.username:
             temp_username = f"username{uuid.uuid4().__str__().split('-')[-1]}"
-            while CustomUser.objects.filter(username=temp_username).first().exists():
-                temp_username+=str(random.randint(0,9))
+            user=CustomUser.objects.filter(username=temp_username).first()
+            if user:
+                while user.exists():
+                    temp_username+=str(random.randint(0,9))
 
             self.username = temp_username
 
     def check_pass(self):
         if not self.password:
             temp_password = f"pass{uuid.uuid4().__str__().split('-')[-1]}"
-            self.username=temp_password
+            self.password=temp_password
 
-    def hashing_pass(self):
-        if not self.password.startswith('pbkdf2_sha256'):
-            self.password = self.set_password(self.password)
+
+
+    def set_temp_password(self):
+        if not self.password:
+            temp_password = f"pass{uuid.uuid4().__str__().split('-')[-1]}"
+            self.set_password(temp_password)
+
 
 
     def check_email(self):
@@ -91,6 +100,17 @@ class CustomUser(AbstractUser,BaseModel):
         }
         return data
 
+    def generate_code(self,verify_type):
+        code= random.randint(1000,9999)
+        CodeVerify.objects.create(
+            code=code,
+            user=self,
+            verify_type=verify_type,
+        )
+        return code
+
+
+
 
     def clean(self):
         self.check_email()
@@ -98,9 +118,9 @@ class CustomUser(AbstractUser,BaseModel):
         self.check_username()
         self.hashing_pass()
 
-    def save(self, force_insert=..., force_update=..., using=..., update_fields=...):
+    def save(self, *args, **kwargs):
         self.clean()
-        super().save()
+        super().save(*args, **kwargs)
 
 
 
@@ -114,7 +134,7 @@ class CustomUser(AbstractUser,BaseModel):
 class CodeVerify(BaseModel):
     VERIFY_TYPE = (
         (VIA_EMAIL, VIA_EMAIL),
-        (VIA_PHOTO, VIA_PHOTO)
+        (VIA_PHONE, VIA_PHONE)
     )
     user=models.ForeignKey(CustomUser,on_delete=models.CASCADE)
     code=models.CharField(max_length=4)
@@ -129,7 +149,7 @@ class CodeVerify(BaseModel):
             self.expiration_time = datetime.now() + timedelta(minutes=EMAIL_EXPIRATION_TIME)
         else:
             self.expiration_time = datetime.now() + timedelta(minutes=PHONE_EXPIRATION_TIME)
-        return super().save(*args, **kwargs)
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.user.username} | {self.code}"
