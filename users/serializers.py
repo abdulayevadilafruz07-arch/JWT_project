@@ -1,3 +1,4 @@
+from django.db.models import Q
 from rest_framework import serializers, status
 from .models import CodeVerify, CustomUser, VIA_EMAIL,VIA_PHONE
 from rest_framework.exceptions import ValidationError
@@ -7,16 +8,16 @@ from shared.utility import check_email_or_phone
 class SignupSerializer(serializers.ModelSerializer):
     id = serializers.UUIDField(read_only=True)
     auth_status = serializers.CharField(read_only=True)
-    verify_type = serializers.CharField(read_only=True)
+    auth_type = serializers.CharField(read_only=True)
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, instance=None,  **kwargs):
+        super().__init__(instance, **kwargs)
         self.fields['email_or_phone']= serializers.CharField(write_only=True, required=True)
 
 
     class Meta:
         model = CustomUser
-        fields = ('id', 'auth_status', 'verify_type')
+        fields = ('id', 'auth_status', 'auth_type')
 
 
     def create(self, validated_data):
@@ -62,7 +63,20 @@ class SignupSerializer(serializers.ModelSerializer):
             raise ValidationError(response)
         return data
 
+    def validate_email_or_phone(self, email_or_phone):
+        user=CustomUser.objects.filter(Q(email=email_or_phone) | Q(phone=email_or_phone)).first()
+        if user:
+            raise ValidationError(detail='bu email yoki telefon raqami bilan oldin royxatdan otilgan')
+        return email_or_phone
 
 
+
+
+    def to_representation(self, instance):
+        data=super().to_representation(instance)
+        data['message']='kodingiz yuborildi'
+        data['refresh']=instance.token()['refresh']
+        data['access']=instance.token()['access']
+        return data
 
 
