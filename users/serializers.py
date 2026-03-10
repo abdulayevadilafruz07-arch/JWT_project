@@ -1,6 +1,6 @@
 from django.db.models import Q
 from rest_framework import serializers, status
-from .models import CodeVerify, CustomUser, VIA_EMAIL,VIA_PHONE
+from .models import CodeVerify, CustomUser, VIA_EMAIL, VIA_PHONE, CODE_VERIFY, DONE
 from rest_framework.exceptions import ValidationError
 from shared.utility import check_email_or_phone
 
@@ -10,7 +10,7 @@ class SignupSerializer(serializers.ModelSerializer):
     auth_status = serializers.CharField(read_only=True)
     auth_type = serializers.CharField(read_only=True)
 
-    def __init__(self, instance=None,  **kwargs):
+    def __init__(self, instance=None, **kwargs):
         super().__init__(instance, **kwargs)
         self.fields['email_or_phone']= serializers.CharField(write_only=True, required=True)
 
@@ -89,18 +89,47 @@ class UserChangeInfoSerializer(serializers.Serializer):
     password = serializers.CharField(required=True)
     confirm_password = serializers.CharField(required=True)
 
+
     def validate(self, attrs):
-        #parollarni tekshirish
+        password = attrs.get('password')
+        confirm_password = attrs.get('confirm_password')
+
+        # Parollarni tekshirish
+        if not password or not confirm_password or password != confirm_password:
+            raise ValidationError({
+                'status': status.HTTP_400_BAD_REQUEST,
+                'message': 'Parollar mos emas yoki xato kiritildi'
+            })
+
+        if ' ' in password:
+            raise ValidationError({
+                'status': status.HTTP_400_BAD_REQUEST,
+                'message': 'Parolda probel bo‘lmasligi kerak'
+            })
         return attrs
 
     def validate_username(self, username):
-        pass
+        if len(username) < 6:
+            raise ValidationError({'message': 'Username kamida 6 ta belgidan iborat bo‘lishi kerak'})
+        if not username.isalnum():
+            raise ValidationError({'message': 'Username faqat harf va raqamlardan iborat bo‘lishi kerak'})
+        if username[0].isdigit():
+            raise ValidationError({'message': 'Username raqam bilan boshlanmasligi kerak'})
+        return username
 
     def validate_first_name(self, value):
-        pass
+        if len(value) < 2:
+            raise ValidationError({'message': 'Ism juda qisqa'})
+        if not value.isalpha():
+            raise ValidationError({'message': 'Ism faqat harflardan iborat bo‘lishi kerak'})
+        return value
 
     def validate_last_name(self, value):
-        pass
+        if len(value) < 2:
+            raise ValidationError({'message': 'Familiya juda qisqa'})
+        if not value.isalpha():
+            raise ValidationError({'message': 'Familiya faqat harflardan iborat bo‘lishi kerak'})
+        return value
 
 
     def update(self, instance, validated_data):
@@ -108,24 +137,28 @@ class UserChangeInfoSerializer(serializers.Serializer):
         instance.last_name = validated_data.get('last_name')
         instance.username = validated_data.get('username')
         instance.password.set_password = (validated_data.get('password'))
+        if instance.auth_status != CODE_VERIFY:
+            raise ValidationError({"message":"siz hali tasdiqlanmagansiz",'status_code':status.HTTP_400_BAD_REQUEST})
+        instance.auth_status=DONE
+        instance.save()
+        return instance
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    # def update(self, instance, validated_data):
+    #
+    #     if instance.auth_status != CODE_VERIFY:
+    #         raise ValidationError({
+    #             "message": "Siz hali tasdiqlanmagansiz",
+    #             "status_code": status.HTTP_400_BAD_REQUEST
+    #         })
+    #
+    #     instance.first_name = validated_data.get('first_name')
+    #     instance.last_name = validated_data.get('last_name')
+    #     instance.username = validated_data.get('username')
+    #
+    #     password = validated_data.get('password')
+    #     instance.set_password(password)
+    #
+    #     instance.auth_status = DONE
+    #     instance.save()
+    #
+    #     return instance

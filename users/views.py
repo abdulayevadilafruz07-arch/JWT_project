@@ -8,12 +8,14 @@ from datetime import datetime
 from .serializers import SignupSerializer
 from .models import CustomUser, NEW, DONE, CODE_VERIFY, PHOTO_DONE, VIA_EMAIL, VIA_PHONE
 from rest_framework.exceptions import ValidationError
+from rest_framework.generics import UpdateAPIView
+from .serializers import UserChangeInfoSerializer
 
 
 class SignUpView(CreateAPIView):
     permission_classes = (permissions.AllowAny, )
     serializer_class = SignupSerializer
-    queryset = CustomUser
+    queryset = CustomUser.objects.all()
 
 class CodeVerifyView(APIView):
     permission_classes = (permissions.IsAuthenticated, )
@@ -21,7 +23,7 @@ class CodeVerifyView(APIView):
         user=request.user
         code=self.request.data.get('code')
 
-        codes=user.verify_codes.filter(code=code, expiration_time_gte=datetime.now(),is_active=False)
+        codes=user.verify_codes.filter(code=code, expiration_time__gte=datetime.now(),is_active=False)
         if not codes.exists():
             raise ValidationError({"message":'Kodingiz xato yoki eskirgan','status':status.HTTP_400_BAD_REQUEST})
         else:
@@ -41,7 +43,7 @@ class GetNewCodeView(APIView):
     permission_classes = (permissions.IsAuthenticated, )
     def get(self, request):
         user=request.user
-        code = user.verify_codes.filter(expiration_time_gte=datetime.now(), is_active=False)
+        code = user.verify_codes.filter(expiration_time__gte=datetime.now(), is_active=False)
         if code.exists():
             raise ValidationError({"message": 'Sizda hali active kod bor', 'status': status.HTTP_400_BAD_REQUEST})
         else:
@@ -59,3 +61,9 @@ class GetNewCodeView(APIView):
         return Response(response_data)
 
 
+class UserChangeInfoView(UpdateAPIView):
+    permission_classes = (permissions.IsAuthenticated,)
+    serializer_class = UserChangeInfoSerializer
+
+    def get_object(self):
+        return self.request.user
