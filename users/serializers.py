@@ -18,6 +18,22 @@ class SignupSerializer(serializers.ModelSerializer):
         model = CustomUser
         fields = ('id', 'auth_status', 'verify_type')
 
+
+    def create(self, validated_data):
+        user=super().create(validated_data)
+        if user.auth_type==VIA_EMAIL:
+            code=user.generate_code(VIA_EMAIL)
+            print(code,'||||||||||||||||||')
+        elif user.auth_type==VIA_PHONE:
+            code=user.generate_code(VIA_PHONE)
+            print(code,'||||||||||||||||||')
+        else:
+            raise ValidationError('Email yoki telefon raqami xato')
+        user.save()
+        return user
+
+
+
     def validate(self, attrs):
         super().validate(attrs)
         data=self.auth_validate(attrs)

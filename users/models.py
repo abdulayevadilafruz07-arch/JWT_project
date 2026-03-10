@@ -3,7 +3,7 @@ from django.contrib.auth.models import AbstractUser
 from django.core.validators import FileExtensionValidator
 from shared.models import BaseModel
 from datetime import datetime, timedelta
-from config.settings import EMAIL_EXPIRATION_TIME
+from config.settings import EMAIL_EXPIRATION_TIME, PHONE_EXPIRATION_TIME
 import uuid
 import random
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -49,7 +49,6 @@ class CustomUser(AbstractUser,BaseModel):
         max_length=20,
         choices=USER_AUTH_TYPE
     )
-
     email = models.EmailField(max_length=50, unique=True, blank=True, null=True)
     phone_number = models.CharField(max_length=13,unique=True, blank=True, null=True)
     photo = models.ImageField(upload_to='user_photos/', validators=[FileExtensionValidator(allowed_extensions=['jpg', 'png','heic'])])
@@ -60,6 +59,24 @@ class CustomUser(AbstractUser,BaseModel):
     def __str__(self):
         return self.username
 
+
+class CodeVerify(BaseModel):
+    VERIFY_TYPE = (
+        (VIA_EMAIL, VIA_EMAIL),
+        (VIA_PHONE, VIA_PHONE)
+    )
+    user=models.ForeignKey(CustomUser,on_delete=models.CASCADE,related_name='verify_codes')
+    code = models.CharField(max_length=4)
+    verify_type = models.CharField(max_length=30,choices=VERIFY_TYPE)
+    expiration_time = models.DateTimeField()
+    is_active = models.BooleanField(default=False)
+
+    def save(self, *args, **kwargs):
+        if self.verify_type == VIA_EMAIL:
+            self.expiration_time = datetime.now() + timedelta(minutes=EMAIL_EXPIRATION_TIME)
+        else:
+            self.expiration_time = datetime.now() + timedelta(minutes=PHONE_EXPIRATION_TIME)
+        super().save(*args, **kwargs)
 
     def check_username(self):
         if not self.username:
