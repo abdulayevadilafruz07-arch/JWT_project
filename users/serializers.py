@@ -80,3 +80,52 @@ class SignupSerializer(serializers.ModelSerializer):
         return data
 
 
+
+
+class UserChangeInfoSerializer(serializers.Serializer):
+    first_name = serializers.CharField(required=True)
+    last_name = serializers.CharField(required=True)
+    username = serializers.CharField(required=True)
+    password = serializers.CharField(required=True)
+    confirm_password = serializers.CharField(required=True)
+
+    def validate(self, attrs):
+        #parollarni tekshirish
+        return attrs
+
+    def validate_username(self, username):
+        pass
+
+    def validate_first_name(self, value):
+        pass
+
+    def validate_last_name(self, value):
+        pass
+
+
+    def update(self, instance, validated_data):
+        instance.first_name = validated_data.get('first_name')
+        instance.last_name = validated_data.get('last_name')
+        instance.username = validated_data.get('username')
+        instance.password.set_password = (validated_data.get('password'))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
