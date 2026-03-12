@@ -1,8 +1,10 @@
 from django.db.models import Q
 from rest_framework import serializers, status
-from .models import CodeVerify, CustomUser, VIA_EMAIL, VIA_PHONE, CODE_VERIFY, DONE
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+from django.contrib.auth import authenticate
+from .models import CodeVerify, CustomUser, VIA_EMAIL, VIA_PHONE, CODE_VERIFY, DONE, PHOTO_DONE
 from rest_framework.exceptions import ValidationError
-from shared.utility import check_email_or_phone
+from shared.utility import check_email_or_phone, check_email_or_phone_or_username
 
 
 class SignupSerializer(serializers.ModelSerializer):
@@ -94,7 +96,6 @@ class UserChangeInfoSerializer(serializers.Serializer):
         password = attrs.get('password')
         confirm_password = attrs.get('confirm_password')
 
-        # Parollarni tekshirish
         if not password or not confirm_password or password != confirm_password:
             raise ValidationError({
                 'status': status.HTTP_400_BAD_REQUEST,
@@ -132,33 +133,104 @@ class UserChangeInfoSerializer(serializers.Serializer):
         return value
 
 
+
     def update(self, instance, validated_data):
+
+        if instance.auth_status != CODE_VERIFY:
+            raise ValidationError({
+                "message": "Siz hali tasdiqlanmagansiz",
+                "status_code": status.HTTP_400_BAD_REQUEST
+            })
+
         instance.first_name = validated_data.get('first_name')
         instance.last_name = validated_data.get('last_name')
         instance.username = validated_data.get('username')
-        instance.password.set_password = (validated_data.get('password'))
-        if instance.auth_status != CODE_VERIFY:
-            raise ValidationError({"message":"siz hali tasdiqlanmagansiz",'status_code':status.HTTP_400_BAD_REQUEST})
-        instance.auth_status=DONE
+
+        password = validated_data.get('password')
+        instance.set_password(password)
+
+        instance.auth_status = DONE
+        instance.save()
+
+        return instance
+
+
+class UserPhotoStatusSerializer(serializers.Serializer):
+    photo=serializers.ImageField()
+
+    def update(self,instance,validated_data):
+        photo=validated_data.get['photo',None]
+        if photo:
+            instance.photo=photo
+        if instance.auth_status== DONE:
+            instance.auth_status = PHOTO_DONE
         instance.save()
         return instance
 
-    # def update(self, instance, validated_data):
-    #
-    #     if instance.auth_status != CODE_VERIFY:
-    #         raise ValidationError({
-    #             "message": "Siz hali tasdiqlanmagansiz",
-    #             "status_code": status.HTTP_400_BAD_REQUEST
-    #         })
-    #
-    #     instance.first_name = validated_data.get('first_name')
-    #     instance.last_name = validated_data.get('last_name')
-    #     instance.username = validated_data.get('username')
-    #
-    #     password = validated_data.get('password')
-    #     instance.set_password(password)
-    #
-    #     instance.auth_status = DONE
-    #     instance.save()
-    #
-    #     return instance
+
+
+
+class LoginSerializer(TokenObtainPairSerializer):
+    password=serializers.CharField(required=True,write_only=True)
+
+    def __init__(self,*args,**kwargs):
+        super(LoginSerializer).__init__(*args,**kwargs)
+        self.fields['user_input']=serializers.CharField(required=True,write_only=True)
+        self.fields['username']=serializers.CharField(read_only=True)
+
+
+    def validate(self, attrs):
+        data = self.check_user_type(attrs)
+        return data
+
+
+
+
+
+
+
+
+    @staticmethod
+    def check_user_type(self,data):
+        password=data.get('password')
+        user_input_data=data.get('user_input')
+        user_type=check_email_or_phone_or_username(user_input_data)
+        if user_type=='username':
+            user= CustomUser.objects.filter(username=user_input_data)
+            self.get_object(user)
+            username=user_input_data
+        elif user_type=='email':
+            user=CustomUser.objects.filter(email_icontains=user_input_data.lower())
+            self.get_object(user)
+            username=user.username
+        elif user_type=='phone':
+            user=CustomUser.objects.filter(photo_number=user_input_data)
+            self.get_object(user)
+            username=user.username
+        else:
+            raise ValidationError(detail='malumot topilmadi')
+
+        authentication_kwargs = {
+            "password": password,
+            self.username_field: username
+        }
+
+        if user.auth_status not in [DONE,PHOTO_DONE]:
+            raise ValidationError(detail='siz hali toliq royxatdan otmagansiz')
+
+        user=authenticate(**authentication_kwargs)
+
+        if not user:
+            raise ValidationError(detail='login yoki parol xato')
+
+
+
+
+    def get_object(user):
+        if not user:
+            raise ValidationError({"message": "login ni xato kiritdingiz","status": status.HTTP_400_BAD_REQUEST  })
+        return True
+
+
+# ChangePhoto api va login(oddiy usulda va tokenobtaion dan foydalanib, 2 xil usulda yozilsin) apilarni toliq tugatib yozish
+
