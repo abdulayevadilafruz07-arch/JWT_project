@@ -33,7 +33,7 @@ def check_email_or_phone_or_username(user_input):
     else:
         response = {
             "status": status.HTTP_400_BAD_REQUEST,
-            "message": "Phone or email address not valid"
+            "message": "Login xato kiritilgan"
         }
         raise ValidationError(response)
 

@@ -156,17 +156,16 @@ class UserChangeInfoSerializer(serializers.Serializer):
 
 
 class UserPhotoStatusSerializer(serializers.Serializer):
-    photo=serializers.ImageField()
+    photo = serializers.ImageField()
 
     def update(self,instance,validated_data):
-        photo=validated_data.get['photo',None]
+        photo = validated_data.get['photo', None]
         if photo:
             instance.photo=photo
         if instance.auth_status== DONE:
             instance.auth_status = PHOTO_DONE
         instance.save()
         return instance
-
 
 
 
@@ -180,8 +179,14 @@ class LoginSerializer(TokenObtainPairSerializer):
 
 
     def validate(self, attrs):
-        data = self.check_user_type(attrs)
-        return data
+        user = self.check_user_type(attrs)
+        response_data = {
+            'status': status.HTTP_200_OK,
+            'message':'siz tizimga kirdingiz',
+            'access': user.token()['access'],
+            'refresh': user.token()['refresh'],
+        }
+        return response_data
 
 
 
@@ -196,7 +201,7 @@ class LoginSerializer(TokenObtainPairSerializer):
         user_input_data=data.get('user_input')
         user_type=check_email_or_phone_or_username(user_input_data)
         if user_type=='username':
-            user= CustomUser.objects.filter(username=user_input_data)
+            user= CustomUser.objects.filter(username=user_input_data).first()
             self.get_object(user)
             username=user_input_data
         elif user_type=='email':
@@ -204,7 +209,7 @@ class LoginSerializer(TokenObtainPairSerializer):
             self.get_object(user)
             username=user.username
         elif user_type=='phone':
-            user=CustomUser.objects.filter(photo_number=user_input_data)
+            user=CustomUser.objects.filter(photo_number=user_input_data).first()
             self.get_object(user)
             username=user.username
         else:
@@ -221,12 +226,12 @@ class LoginSerializer(TokenObtainPairSerializer):
         user=authenticate(**authentication_kwargs)
 
         if not user:
-            raise ValidationError(detail='login yoki parol xato')
+            raise ValidationError(detail='Parol xato')
 
 
 
 
-    def get_object(user):
+    def get_object(self,user):
         if not user:
             raise ValidationError({"message": "login ni xato kiritdingiz","status": status.HTTP_400_BAD_REQUEST  })
         return True
