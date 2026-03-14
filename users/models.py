@@ -78,6 +78,9 @@ class CodeVerify(BaseModel):
             self.expiration_time = datetime.now() + timedelta(minutes=PHONE_EXPIRATION_TIME)
         super().save(*args, **kwargs)
 
+    def __str__(self):
+        return f"{self.user.username} | {self.code}"
+
     def check_username(self):
         if not self.username:
             temp_username = f"username{uuid.uuid4().__str__().split('-')[-1]}"
@@ -138,58 +141,6 @@ class CodeVerify(BaseModel):
     def save(self, *args, **kwargs):
         self.clean()
         super().save(*args, **kwargs)
-
-
-
-
-
-
-
-
-
-
-class CodeVerify(BaseModel):
-    VERIFY_TYPE = (
-        (VIA_EMAIL, VIA_EMAIL),
-        (VIA_PHONE, VIA_PHONE)
-    )
-    user=models.ForeignKey(CustomUser,on_delete=models.CASCADE)
-    code=models.CharField(max_length=4)
-    verify_type = models.CharField(
-        max_length=30,
-        choices=VERIFY_TYPE,
-    )
-    expiration_time=models.DateTimeField()
-
-    def save(self, *args, **kwargs):
-        if self.verify_type == VIA_EMAIL:
-            self.expiration_time = datetime.now() + timedelta(minutes=EMAIL_EXPIRATION_TIME)
-        else:
-            self.expiration_time = datetime.now() + timedelta(minutes=PHONE_EXPIRATION_TIME)
-        super().save(*args, **kwargs)
-
-    def __str__(self):
-        return f"{self.user.username} | {self.code}"
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
