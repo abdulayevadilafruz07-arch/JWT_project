@@ -244,35 +244,43 @@ class LoginSerializer(TokenObtainPairSerializer):
 class ForgotPasswordSerializer(serializers.Serializer):
     user_input = serializers.CharField(required=True, write_only=True)
 
-    def validate(self,attrs):
-        user_data = attrs.get('user_input', None)
+    def validate(self, attrs):
+
+        user_data = attrs.get('user_input')
+
         if not user_data:
             raise ValidationError('email telefon raqam yoki username kiriting')
-        user_data_type = check_email_or_phone_or_username(user_data)
-        user = CustomUser.objects.filter(Q(username=user_data) | Q(email=user_data) | Q(phone=user_data)).first()
-        if not user:
-            raise ValidationError('email telefon raqam yoki username xato kiritiligan')
-        if user and user_data_type=='username':
-            if user.email:
-                code=user.generate_code()
-                print('EMAIL CODE:::::', code)
-            elif user.phone_number:
-                code=user.generate_code()
-                print('PHONE CODE:::::', code)
-            else:
-                print('siz hali toliq royxatdan otmagansiz')
-        elif user_data_type=='phone':
-            code=user.generate_code()
-            print('PHONE CODE:::::', code)
-        elif user_data_type=='email':
-            code=user.generate_code()
-            print('EMAIL CODE:::::', code)
-        response_data = {
-            'status': status.HTTP_201_CREATED,
-            'message':'kod yuborildi'
-        }
-        return Response(response_data)
 
+        user_data_type = check_email_or_phone_or_username(user_data)
+
+        user = CustomUser.objects.filter(
+            Q(username=user_data) |
+            Q(email=user_data) |
+            Q(phone_number=user_data)
+        ).first()
+
+        if not user:
+            raise ValidationError('email telefon raqam yoki username xato kiritilgan')
+
+        if user_data_type == 'username':
+            if user.email:
+                code = user.generate_code()
+                print('EMAIL CODE:::::', code)
+
+            elif user.phone_number:
+                code = user.generate_code()
+                print('PHONE CODE:::::', code)
+
+        elif user_data_type == 'phone':
+            code = user.generate_code()
+            print('PHONE CODE:::::', code)
+
+        elif user_data_type == 'email':
+            code = user.generate_code()
+            print('EMAIL CODE:::::', code)
+
+        attrs['user'] = user
+        return attrs
 
 class ResetPasswordSerializer(serializers.Serializer):
 
