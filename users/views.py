@@ -1,3 +1,4 @@
+from django.db.models import Q
 from django.shortcuts import render
 
 from rest_framework.generics import CreateAPIView
@@ -5,6 +6,8 @@ from rest_framework import permissions,status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from datetime import datetime
+
+from shared.utility import check_email_or_phone_or_username
 from .serializers import SignupSerializer, UserPhotoStatusSerializer,UserChangeInfoSerializer,LoginSerializer
 from .models import CustomUser, NEW, DONE, CODE_VERIFY, PHOTO_DONE, VIA_EMAIL, VIA_PHONE
 from rest_framework.exceptions import ValidationError
@@ -107,13 +110,14 @@ class UserChangeInfoView(UpdateAPIView):
 #             'refresh': user.token()['refresh']
 #         }
 #         return Response(response)
-#
+
 class UserChangePhotoView(UpdateAPIView):
     permission_classes = (permissions.IsAuthenticated,)
+    serializer_class = UserPhotoStatusSerializer
 
     def patch(self, request):
 
-        serializer = UserPhotoStatusSerializer(
+        serializer = self.serializer_class(
             instance=request.user,
             data=request.data,
             partial=True
@@ -122,17 +126,17 @@ class UserChangePhotoView(UpdateAPIView):
         serializer.is_valid(raise_exception=True)
         serializer.save()
 
-        response = {
-            "message": "rasm qoshildi",
+        return Response({
+            "message": "Rasm muvaffaqiyatli qo‘shildi",
             "status": status.HTTP_200_OK,
             "access": request.user.token()['access'],
             "refresh": request.user.token()['refresh']
-        }
+        })
 
-        return Response(response)
 
 
 class LoginAPIView(APIView):
+    permission_classes = (permissions.AllowAny,)
 
     def post(self, request):
 
@@ -149,6 +153,7 @@ class LoginAPIView(APIView):
             "refresh": tokens["refresh"],
             "user_id": user.id
         })
+
 
 
 class LoginView(TokenObtainPairView):
@@ -189,15 +194,30 @@ class LoginRefreshView(APIView):
             }
             return Response(response_data)
 
-
 class ForgotPasswordView(APIView):
-    pass
+
+    def post(self, request):
+
+        serializer = ForgotPasswordSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        return Response({
+            "status": status.HTTP_200_OK,
+            "message": "Tasdiqlash kodi yuborildi"
+        })
 
 class ResetPasswordView(APIView):
-    pass
 
+    def post(self, request):
 
+        serializer = ResetPasswordSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
 
+        return Response({
+            "status": status.HTTP_200_OK,
+            "message": "Parol muvaffaqiyatli yangilandi"
+        })
 
 
 

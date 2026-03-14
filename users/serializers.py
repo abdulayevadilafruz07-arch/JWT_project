@@ -1,10 +1,12 @@
 from django.db.models import Q
 from rest_framework import serializers, status
+from rest_framework.response import Response
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from django.contrib.auth import authenticate
 from .models import CodeVerify, CustomUser, VIA_EMAIL, VIA_PHONE, CODE_VERIFY, DONE, PHOTO_DONE
 from rest_framework.exceptions import ValidationError
 from shared.utility import check_email_or_phone, check_email_or_phone_or_username
+from datetime import datetime
 
 
 class SignupSerializer(serializers.ModelSerializer):
@@ -158,15 +160,17 @@ class UserChangeInfoSerializer(serializers.Serializer):
 class UserPhotoStatusSerializer(serializers.Serializer):
     photo = serializers.ImageField()
 
-    def update(self,instance,validated_data):
-        photo = validated_data.get['photo', None]
+    def update(self, instance, validated_data):
+        photo = validated_data.get('photo', None)
+
         if photo:
-            instance.photo=photo
-        if instance.auth_status== DONE:
+            instance.photo = photo
+
+        if instance.auth_status == DONE:
             instance.auth_status = PHOTO_DONE
+
         instance.save()
         return instance
-
 
 
 class LoginSerializer(TokenObtainPairSerializer):
@@ -237,5 +241,82 @@ class LoginSerializer(TokenObtainPairSerializer):
         return True
 
 
-# ChangePhoto api va login(oddiy usulda va tokenobtaion dan foydalanib, 2 xil usulda yozilsin) apilarni toliq tugatib yozish
+class ForgotPassword(serializers.Serializer):
+    user_input = serializers.CharField(required=True, write_only=True)
+
+    def validate(self,attrs):
+        user_data = attrs.get('user_input', None)
+        if not user_data:
+            raise ValidationError('email telefon raqam yoki username kiriting')
+        user_data_type = check_email_or_phone_or_username(user_data)
+        user = CustomUser.objects.filter(Q(username=user_data) | Q(email=user_data) | Q(phone=user_data)).first()
+        if not user:
+            raise ValidationError('email telefon raqam yoki username xato kiritiligan')
+        if user and user_data_type=='username':
+            if user.email:
+                code=user.generate_code()
+                print('EMAIL CODE:::::', code)
+            elif user.phone_number:
+                code=user.generate_code()
+                print('PHONE CODE:::::', code)
+            else:
+                print('siz hali toliq royxatdan otmagansiz')
+        elif user_data_type=='phone':
+            code=user.generate_code()
+            print('PHONE CODE:::::', code)
+        elif user_data_type=='email':
+            code=user.generate_code()
+            print('EMAIL CODE:::::', code)
+        response_data = {
+            'status': status.HTTP_201_CREATED,
+            'message':'kod yuborildi'
+        }
+        return Response(response_data)
+
+from datetime import datetime
+from .models import CodeVerify
+
+
+class ResetPasswordSerializer(serializers.Serializer):
+
+    code = serializers.CharField(required=True)
+    password = serializers.CharField(required=True)
+    confirm_password = serializers.CharField(required=True)
+
+    def validate(self, attrs):
+
+        code = attrs.get("code")
+        password = attrs.get("password")
+        confirm_password = attrs.get("confirm_password")
+
+        if password != confirm_password:
+            raise ValidationError("Parollar mos emas")
+
+        code_obj = CodeVerify.objects.filter(
+            code=code,
+            is_active=False,
+            expiration_time__gte=datetime.now()
+        ).first()
+
+        if not code_obj:
+            raise ValidationError("Kod xato yoki eskirgan")
+
+        attrs["user"] = code_obj.user
+        attrs["code_obj"] = code_obj
+
+        return attrs
+
+    def save(self):
+
+        user = self.validated_data["user"]
+        code_obj = self.validated_data["code_obj"]
+        password = self.validated_data["password"]
+
+        user.set_password(password)
+        user.save()
+
+        code_obj.is_active = True
+        code_obj.save()
+
+        return user
 
