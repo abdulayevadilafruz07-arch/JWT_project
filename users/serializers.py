@@ -241,7 +241,7 @@ class LoginSerializer(TokenObtainPairSerializer):
         return True
 
 
-class ForgotPassword(serializers.Serializer):
+class ForgotPasswordSerializer(serializers.Serializer):
     user_input = serializers.CharField(required=True, write_only=True)
 
     def validate(self,attrs):
@@ -272,9 +272,6 @@ class ForgotPassword(serializers.Serializer):
             'message':'kod yuborildi'
         }
         return Response(response_data)
-
-from datetime import datetime
-from .models import CodeVerify
 
 
 class ResetPasswordSerializer(serializers.Serializer):

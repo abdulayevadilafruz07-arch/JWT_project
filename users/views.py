@@ -8,7 +8,8 @@ from rest_framework.views import APIView
 from datetime import datetime
 
 from shared.utility import check_email_or_phone_or_username
-from .serializers import SignupSerializer, UserPhotoStatusSerializer,UserChangeInfoSerializer,LoginSerializer
+from .serializers import SignupSerializer, UserPhotoStatusSerializer, UserChangeInfoSerializer, LoginSerializer, \
+    ResetPasswordSerializer, ForgotPasswordSerializer
 from .models import CustomUser, NEW, DONE, CODE_VERIFY, PHOTO_DONE, VIA_EMAIL, VIA_PHONE
 from rest_framework.exceptions import ValidationError
 from rest_framework.generics import UpdateAPIView
@@ -193,6 +194,8 @@ class LoginRefreshView(APIView):
                 'access': str(refresh_token.access_token),
             }
             return Response(response_data)
+
+
 
 class ForgotPasswordView(APIView):
 
